@@ -1,0 +1,213 @@
+import tkinter as tk
+from tkinter import messagebox, ttk
+import sqlite3
+
+# Database connection
+def get_db_connection():
+    conn = sqlite3.connect('gym_management.db')
+    return conn
+
+# Create the database and the necessary tables if they don't exist
+def create_table():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Members (
+            MemberID INTEGER PRIMARY KEY AUTOINCREMENT,
+            FirstName TEXT NOT NULL,
+            LastName TEXT NOT NULL,
+            DateOfBirth TEXT NOT NULL,
+            Phone TEXT NOT NULL,
+            Email TEXT NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Users (
+            UserID INTEGER PRIMARY KEY AUTOINCREMENT,
+            Username TEXT NOT NULL UNIQUE,
+            Password TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# Function to register a new user
+def register_user():
+    username = register_username_entry.get()
+    password = register_password_entry.get()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO Users (Username, Password) VALUES (?, ?)', (username, password))
+        conn.commit()
+        messagebox.showinfo("Success", "User  registered successfully!")
+        register_window.destroy()  # Close registration window
+    except sqlite3.IntegrityError:
+        messagebox.showerror("Error", "Username already exists!")
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+# Function to validate login
+def show_gym_management():
+    create_gym_management_window()  # Call the function that creates the gym management window
+def validate_login():
+    username = username_entry.get()
+    password = password_entry.get()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM Users WHERE Username = ? AND Password = ?', (username, password))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if user:
+
+        show_gym_management()
+    else:
+        messagebox.showerror("Login Failed", "Invalid username or password")
+
+# Create the login window
+def create_login_window():
+    global login_window, username_entry, password_entry
+
+    login_window = tk.Tk()
+    login_window.title("Login")
+
+    tk.Label(login_window, text="Username").grid(row=0, column=0, padx=10, pady=10)
+    username_entry = tk.Entry(login_window)
+    username_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(login_window, text="Password").grid(row=1, column=0, padx=10, pady=10)
+    password_entry = tk.Entry(login_window, show='*')
+    password_entry.grid(row=1, column=1, padx=10, pady=10)
+
+    login_button = tk.Button(login_window, text="Login", command=validate_login)
+    login_button.grid(row=2, columnspan=2, pady=10)
+
+    register_button = tk.Button(login_window, text="Register", command=create_register_window)
+    register_button.grid(row=3, columnspan=2, pady=10)
+
+    login_window.mainloop()
+
+# Create the registration window
+def create_register_window():
+    global register_window, register_username_entry, register_password_entry
+
+    register_window = tk.Toplevel(login_window)
+    register_window.title("Register")
+
+    tk.Label(register_window, text="Username").grid(row=0, column=0, padx=10, pady=10)
+    register_username_entry = tk.Entry(register_window)
+    register_username_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(register_window, text="Password").grid(row=1, column=0, padx=10, pady=10)
+    register_password_entry = tk.Entry(register_window, show='*')
+    register_password_entry.grid(row=1, column=1, padx=10, pady=10)
+
+    register_button = tk.Button(register_window, text="Register", command=register_user)
+    register_button.grid(row=2, columnspan=2, pady=10)
+
+# Create the gym management window
+def create_gym_management_window():
+    global gym_window, first_name_entry, last_name_entry, dob_entry, phone_entry, email_entry, tree
+
+    gym_window = tk.Toplevel()
+    gym_window.title("Gym Management System")
+
+    tk.Label(gym_window, text="First Name").grid(row=0, column=0)
+    first_name_entry = tk.Entry(gym_window)
+    first_name_entry.grid(row=0, column=1)
+
+    tk.Label(gym_window, text="Last Name").grid(row=1, column=0)
+    last_name_entry = tk.Entry(gym_window)
+    last_name_entry.grid(row=1, column=1)
+
+    tk.Label(gym_window, text="Date of Birth (YYYY-MM-DD)").grid(row=2, column=0)
+    dob_entry = tk.Entry(gym_window)
+    dob_entry.grid(row=2, column=1)
+
+    tk.Label(gym_window, text="Phone").grid(row=3, column=0)
+    phone_entry = tk.Entry(gym_window)
+    phone_entry.grid(row=3, column=1)
+
+    tk.Label(gym_window, text="Email").grid(row=4, column=0)
+    email_entry = tk.Entry(gym_window)
+    email_entry.grid(row=4, column=1)
+
+    # Add Member button
+    add_member_button = tk.Button(gym_window, text="Add Member", command=add_member)
+    add_member_button.grid(row=5, columnspan=2, pady=10)
+
+    # Treeview for displaying members
+    tree = ttk.Treeview(gym_window, columns=("MemberID", "FirstName", "LastName", "DateOfBirth", "Phone", "Email"), show="headings")
+    tree.heading("MemberID", text="Member ID")
+    tree.heading("FirstName", text="First Name")
+    tree.heading("LastName", text="Last Name")
+    tree.heading("DateOfBirth", text="Date of Birth")
+    tree.heading("Phone", text="Phone")
+    tree.heading("Email", text="Email")
+    tree.grid(row=6, columnspan=2)
+
+    # Create the database and table
+    create_table()
+
+    # Load existing members when the gym window starts
+    load_members()
+
+# Function to add a member to the database
+def add_member():
+    first_name = first_name_entry.get()
+    last_name = last_name_entry.get()
+    dob = dob_entry.get()
+    phone = phone_entry.get()
+    email = email_entry.get()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('INSERT INTO Members (FirstName, LastName, DateOfBirth, Phone, Email) VALUES (?, ?, ?, ?, ?)',
+                       (first_name, last_name, dob, phone, email))
+        conn.commit()
+        messagebox.showinfo("Success", "Member added successfully!")
+        clear_entries()
+        load_members()
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+# Function to load members from the database
+def load_members():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM Members')
+    members = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Clear the current list
+    for row in tree.get_children():
+        tree.delete(row)
+
+    # Insert new members into the tree view
+    for member in members:
+        tree.insert("", "end", values=(member[0], member[1], member[2], member[3], member[4], member[5]))
+
+# Function to clear input fields
+def clear_entries():
+    first_name_entry.delete(0, tk.END)
+    last_name_entry.delete(0, tk.END)
+    dob_entry.delete(0, tk.END)
+    phone_entry.delete(0, tk.END)
+    email_entry.delete(0, tk.END)
+
+# Start the application by creating the database and the login window
+create_table()
+create_login_window()
